@@ -1,0 +1,212 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>가위바위보 게임</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    body {
+      text-align: center;
+      font-family: sans-serif;
+      background-color: #f9f9f9;
+      padding: 10px;
+    }
+    .choice {
+      font-size: 48px;
+      margin: 10px;
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .choice:active,
+    .choice:hover {
+      transform: scale(1.2);
+    }
+    #result {
+      font-size: 1.2em;
+      margin-top: 20px;
+    }
+    #ai-taunt {
+      font-style: italic;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .scoreboard {
+      font-size: 1em;
+      margin-top: 15px;
+    }
+    .bounce {
+      animation: bounce 0.4s ease;
+    }
+    @keyframes bounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 24px;
+      font-size: 1em;
+      cursor: pointer;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
+    }
+    .history {
+      font-size: 1.1em;
+      margin-top: 20px;
+      color: #555;
+    }
+    #recommend {
+      font-weight: bold;
+      color: #0066cc;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>가위바위보 게임 (AI 예측 + 심리전 + 축하효과)</h1>
+
+  <div>
+    <button class="choice" onclick="play('가위', this)">✌️</button>
+    <button class="choice" onclick="play('바위', this)">✊</button>
+    <button class="choice" onclick="play('보', this)">🖐️</button>
+  </div>
+
+  <p id="result"></p>
+  <p id="ai-taunt"></p>
+
+  <div class="scoreboard">
+    🙋‍♂️ 당신 점수: <span id="user-score">0</span> |
+    🤖 컴퓨터 점수: <span id="computer-score">0</span>
+  </div>
+
+  <div class="history">
+    <div><strong>컴퓨터 최근 선택:</strong> <span id="computer-history"></span></div>
+    <div style="margin-top: 10px;">
+      <strong>📊 최근 확률 분석:</strong>
+      <div id="stats"></div>
+      <div id="recommend"></div>
+    </div>
+  </div>
+
+  <button onclick="resetGame()">🔁 다시 시작</button>
+
+  <!-- 효과음 -->
+  <audio id="click-sound" src="click.wav"></audio>
+  <audio id="win-sound" src="win.wav"></audio>
+  <audio id="lose-sound" src="lose.wav"></audio>
+
+  <script>
+    let userScore = 0;
+    let computerScore = 0;
+    let computerMoves = [];
+    let userMoves = [];
+
+    const emojiMap = {
+      '가위': '✌️',
+      '바위': '✊',
+      '보': '🖐️'
+    };
+
+    function getAIChoice() {
+      if (userMoves.length === 0) return ['가위', '바위', '보'][Math.floor(Math.random() * 3)];
+      const count = { '가위': 0, '바위': 0, '보': 0 };
+      userMoves.forEach(move => count[move]++);
+      let mostFrequent = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
+      if (mostFrequent === '가위') return '바위';
+      if (mostFrequent === '바위') return '보';
+      if (mostFrequent === '보') return '가위';
+    }
+
+    function getTaunt() {
+      if (userMoves.length < 3) return "준비는 됐겠지?";
+      const count = { '가위': 0, '바위': 0, '보': 0 };
+      userMoves.forEach(c => count[c]++);
+      let mostFreq = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
+      const taunts = {
+        '가위': ["또 가위? 좀 바꿔보지 그래?", "가위 많이 쓰네? 읽혔어.", "내가 바위 내면 어떡할 건데?"],
+        '바위': ["바위 좋아하나 보네?", "넌 너무 정직해.", "이제 보 낼 타이밍이지?"],
+        '보': ["보? 슬슬 바위 낼 때 아냐?", "계속 보 내면 내가 가위 낸다?", "다음에도 보 내면 웃겨줄게."]
+      };
+      const messages = taunts[mostFreq];
+      return messages[Math.floor(Math.random() * messages.length)];
+    }
+
+    function play(userChoice, element) {
+      if (userScore >= 10 || computerScore >= 10) {
+        alert("게임이 종료되었습니다! 다시 시작을 눌러주세요.");
+        return;
+      }
+
+      document.getElementById("click-sound").play();
+
+      const computerChoice = getAIChoice();
+      userMoves.push(userChoice);
+
+      let result = '';
+      if (userChoice === computerChoice) {
+        result = '비겼어요!';
+      } else if (
+        (userChoice === '가위' && computerChoice === '보') ||
+        (userChoice === '바위' && computerChoice === '가위') ||
+        (userChoice === '보' && computerChoice === '바위')
+      ) {
+        result = '이겼어요!';
+        userScore++;
+        document.getElementById("win-sound").play();
+        if (userScore === 10) {
+          confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
+        }
+      } else {
+        result = '졌어요!';
+        computerScore++;
+        document.getElementById("lose-sound").play();
+      }
+
+      if (userScore >= 10) result += " 🎉 승리!";
+      else if (computerScore >= 10) result += " 😢 패배!";
+
+      document.getElementById('result').innerText = `당신: ${emojiMap[userChoice]} | 컴퓨터: ${emojiMap[computerChoice]} → ${result}`;
+      document.getElementById('ai-taunt').innerText = getTaunt();
+      document.getElementById('user-score').innerText = userScore;
+      document.getElementById('computer-score').innerText = computerScore;
+
+      computerMoves.push(computerChoice);
+      if (computerMoves.length > 10) computerMoves.shift();
+      document.getElementById('computer-history').innerText = computerMoves.map(c => emojiMap[c]).join(' ');
+
+      const count = { '가위': 0, '바위': 0, '보': 0 };
+      computerMoves.forEach(c => count[c]++);
+      const total = computerMoves.length;
+      const percent = {
+        '가위': ((count['가위'] / total) * 100).toFixed(1),
+        '바위': ((count['바위'] / total) * 100).toFixed(1),
+        '보': ((count['보'] / total) * 100).toFixed(1),
+      };
+
+      document.getElementById('stats').innerText = `가위: ${percent['가위']}% | 바위: ${percent['바위']}% | 보: ${percent['보']}%`;
+
+      let mostFreq = Object.keys(count).reduce((a, b) => count[a] > count[b] ? a : b);
+      let recommend = '';
+      if (mostFreq === '가위') recommend = '✊ 바위 (가위를 이깁니다)';
+      if (mostFreq === '바위') recommend = '🖐️ 보 (바위를 이깁니다)';
+      if (mostFreq === '보') recommend = '✌️ 가위 (보를 이깁니다)';
+      document.getElementById('recommend').innerText = `추천 선택: ${recommend}`;
+
+      element.classList.remove('bounce');
+      void element.offsetWidth;
+      element.classList.add('bounce');
+    }
+
+    function resetGame() {
+      location.reload();
+    }
+  </script>
+</body>
+</html>
